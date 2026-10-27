@@ -1,119 +1,86 @@
 import { useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Geolocation } from '@capacitor/geolocation';
 
-export default function NativeTools({ onToast }) {
+function isCancelled(error) {
+  return /cancel|cancelled|canceled|no image picked/i.test(`${error?.code || ''} ${error?.message || ''}`);
+}
+
+export default function NativeTools() {
   const [photo, setPhoto] = useState('');
-  const [location, setLocation] = useState(null);
-  const [loading, setLoading] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('Escolha Câmera ou Galeria para começar.');
+  const [tone, setTone] = useState('info');
 
-  async function openCamera() {
-    setLoading('camera');
+  async function choosePhoto() {
+    if (busy) return;
+    setBusy(true);
+    setMessage('Aguardando escolha do Android…');
+    setTone('info');
     try {
       if (Capacitor.isNativePlatform()) {
-        const image = await Camera.getPhoto({
-          quality: 88,
-          allowEditing: false,
-          resultType: CameraResultType.Uri,
-          source: CameraSource.Camera
-        });
-        setPhoto(image.webPath || '');
-        onToast('Câmera acessada pela ponte nativa do Capacitor.', 'success');
-      } else {
-        if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error('Câmera indisponível neste navegador.');
+        // O Android solicita acesso à câmera quando necessário.
+        // A galeria utiliza o seletor de fotos do sistema.
+        const permission = await Camera.checkPermissions();
+        if (permission.camera === 'denied') {
+          setMessage('A câmera pode estar bloqueada; a Galeria ainda pode funcionar.');
         }
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        stream.getTracks().forEach((track) => track.stop());
-        onToast('No navegador foi usado getUserMedia. No Android, o Capacitor usa a API nativa.', 'info');
       }
+      const image = await Camera.getPhoto({
+        quality: 85,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Prompt,
+        promptLabelHeader: 'Tirar foto ou escolher imagem',
+        promptLabelPicture: 'Câmera',
+        promptLabelPhoto: 'Galeria',
+      });
+      if (!image.webPath) throw new Error('O Android não retornou uma imagem para mostrar.');
+      setPhoto(image.webPath);
+      setMessage('Imagem carregada! Você pode abrir a câmera novamente.');
+      setTone('success');
     } catch (error) {
-      onToast(error?.message || 'Não foi possível abrir a câmera.', 'error');
+      // Voltar/Cancelar é normal e não apaga a imagem anterior.
+      setMessage(isCancelled(error) ? 'Operação cancelada. O JOGAÊ continua funcionando!' :
+        error?.message || 'Não foi possível obter a foto. Tente novamente.');
+      setTone(isCancelled(error) ? 'info' : 'error');
     } finally {
-      setLoading('');
+      setBusy(false);
     }
   }
 
-  async function readGPS() {
-    setLoading('gps');
+  async function requestCameraPermission() {
     try {
-      if (Capacitor.isNativePlatform()) {
-        const permission = await Geolocation.requestPermissions();
-        if (permission.location === 'denied') {
-          throw new Error('Permissão de localização negada.');
-        }
-        const position = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 10000
-        });
-        setLocation(position.coords);
-        onToast('GPS consultado pela ponte nativa do Capacitor.', 'success');
-      } else {
-        const position = await new Promise((resolve, reject) => {
-          if (!navigator.geolocation) return reject(new Error('Geolocalização indisponível.'));
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000
-          });
-        });
-        setLocation(position.coords);
-        onToast('No navegador foi usada a Geolocation API. No Android, o plugin usa o GPS nativo.', 'info');
-      }
+      const current = await Camera.checkPermissions();
+      const result = current.camera === 'granted' ? current :
+        await Camera.requestPermissions({ permissions: ['camera'] });
+      setTone(result.camera === 'granted' ? 'success' : 'error');
+      setMessage(result.camera === 'granted' ? 'Permissão de câmera liberada.' :
+        'Permissão negada. Libere nas configurações do Android ou use a Galeria.');
     } catch (error) {
-      onToast(error?.message || 'Não foi possível obter a localização.', 'error');
-    } finally {
-      setLoading('');
+      setTone('error');
+      setMessage(error?.message || 'Não foi possível verificar a permissão da câmera.');
     }
   }
 
-  return (
-    <section id="nativo" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">
-      <div className="native-panel reveal-card">
-        <div className="max-w-2xl">
-          <p className="section-kicker">CAPACITOR NATIVE BRIDGE</p>
-          <h2 className="section-title mt-3">DO REACT PARA O <span>ANDROID</span></h2>
-          <p className="mt-5 text-zinc-400 leading-7">
-            Estes botões demonstram a ponte nativa. No Android, o JavaScript chama plugins do Capacitor, que conversam com as APIs do sistema operacional. No navegador, o projeto usa um fallback web para facilitar os testes.
-          </p>
-
-          <div className="mt-8 flex flex-wrap gap-3">
-            <button onClick={openCamera} disabled={loading === 'camera'} className="native-button">
-              <span>📷</span>{loading === 'camera' ? 'Abrindo...' : 'Abrir Câmera'}
-            </button>
-            <button onClick={readGPS} disabled={loading === 'gps'} className="native-button secondary-native">
-              <span>📍</span>{loading === 'gps' ? 'Buscando...' : 'Ver GPS'}
-            </button>
-          </div>
-        </div>
-
-        <div className="bridge-visual" aria-label="Fluxo da ponte nativa">
-          <div className="bridge-node">React / JS</div>
-          <div className="bridge-line"><i /></div>
-          <div className="bridge-node bridge-highlight">Capacitor Bridge</div>
-          <div className="bridge-line"><i /></div>
-          <div className="bridge-node">Android API</div>
-        </div>
+  return <section className="ja-camera-demo" aria-label="Câmera e galeria do JOGAÊ">
+    <div className="ja-camera-copy">
+      <span className="ja-camera-kicker">📷 RECURSO NATIVO DO ANDROID</span>
+      <h2>Seu momento no JOGAÊ</h2>
+      <p>Abra a câmera ou escolha uma foto da galeria. A imagem aparece aqui na hora.</p>
+      <div className="ja-camera-actions">
+        <button type="button" className="ja-camera-primary" onClick={choosePhoto} disabled={busy}>
+          {busy ? 'Aguardando imagem…' : '📷 Tirar Foto / Galeria'}
+        </button>
+        <button type="button" className="ja-camera-secondary" onClick={requestCameraPermission} disabled={busy}>
+          Verificar permissão
+        </button>
       </div>
-
-      {(photo || location) && (
-        <div className="native-results mt-6">
-          {photo && (
-            <div className="result-card">
-              <span>Última foto</span>
-              <img src={photo} alt="Foto tirada pela câmera" />
-            </div>
-          )}
-          {location && (
-            <div className="result-card p-5">
-              <span>Última localização</span>
-              <strong>Latitude: {location.latitude.toFixed(6)}</strong>
-              <strong>Longitude: {location.longitude.toFixed(6)}</strong>
-              <small>Precisão aproximada: {Math.round(location.accuracy)} m</small>
-            </div>
-          )}
-        </div>
-      )}
-    </section>
-  );
+      <p role="status" data-tone={tone} className="ja-camera-status">{message}</p>
+    </div>
+    <div className="ja-camera-preview">
+      {photo ? <img src={photo} alt="Pré-visualização da foto capturada ou escolhida" /> :
+        <div className="ja-camera-placeholder"><span>🖼️</span><strong>Pré-visualização</strong><small>A sua foto aparecerá aqui</small></div>}
+    </div>
+  </section>;
 }

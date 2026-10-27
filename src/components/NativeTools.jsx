@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
@@ -9,9 +9,70 @@ function isCancelled(error) {
 export default function NativeTools() {
   const [photo, setPhoto] = useState('');
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+  return () => {
+    streamRef.current?.getTracks().forEach(track => track.stop());
+  };
+}, []);
   const [message, setMessage] = useState('Escolha Câmera ou Galeria para começar.');
   const [tone, setTone] = useState('info');
   const fileInput = useRef(null);
+  const videoRef = useRef(null);
+const streamRef = useRef(null);
+const [webcamOpen, setWebcamOpen] = useState(false);
+
+
+  async function openWebcam() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false
+    });
+
+    streamRef.current = stream;
+    videoRef.current.srcObject = stream;
+    setWebcamOpen(true);
+    setMessage('Webcam ligada! Agora você pode tirar a foto.');
+    setTone('success');
+  } catch (error) {
+    setMessage('Não foi possível abrir a webcam. Verifique a permissão.');
+    setTone('error');
+  }
+}
+
+function closeWebcam() {
+  streamRef.current?.getTracks().forEach(track => track.stop());
+  streamRef.current = null;
+
+  if (videoRef.current) {
+    videoRef.current.srcObject = null;
+  }
+
+  setWebcamOpen(false);
+  setMessage('Webcam fechada. O JOGAÊ continua funcionando!');
+  setTone('info');
+}
+
+  function takeWebcamPhoto() {
+  const video = videoRef.current;
+
+  if (!video || !video.videoWidth) {
+    setMessage('Aguarde a webcam carregar.');
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  const context = canvas.getContext('2d');
+  context.drawImage(video, 0, 0);
+
+  setPhoto(canvas.toDataURL('image/jpeg'));
+  closeWebcam();
+  setMessage('Foto tirada com sucesso!');
+  setTone('success');
+}
 
 async function choosePhoto() {
   if (busy) return;
@@ -101,6 +162,53 @@ async function choosePhoto() {
     event.target.value = '';
   }}
 />
+
+{!Capacitor.isNativePlatform() && (
+  <div style={{ marginBottom: '20px' }}>
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      muted
+      style={{
+        display: webcamOpen ? 'block' : 'none',
+        width: '100%',
+        maxWidth: '480px',
+        borderRadius: '12px',
+        marginBottom: '12px'
+      }}
+    />
+
+    {!webcamOpen ? (
+      <button
+        type="button"
+        className="ja-camera-primary"
+        onClick={openWebcam}
+      >
+        📷 Usar Webcam
+      </button>
+    ) : (
+      <div className="ja-camera-actions">
+        <button
+          type="button"
+          className="ja-camera-primary"
+          onClick={takeWebcamPhoto}
+        >
+          📸 Tirar Foto
+        </button>
+
+        <button
+          type="button"
+          className="ja-camera-secondary"
+          onClick={closeWebcam}
+        >
+          ✖ Cancelar
+        </button>
+      </div>
+    )}
+  </div>
+)}
+    
     <div className="ja-camera-copy">
       <span className="ja-camera-kicker">📷 RECURSO NATIVO DO ANDROID</span>
       <h2>Seu momento no JOGAÊ</h2>

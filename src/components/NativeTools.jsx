@@ -89,24 +89,9 @@ async function takeWebcamPhoto() {
   }
 }
 
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
 
-  const context = canvas.getContext('2d');
-  context.drawImage(video, 0, 0);
-
-  setPhoto(canvas.toDataURL('image/jpeg'));
-  closeWebcam();
-  setMessage('Foto tirada com sucesso!');
-  setTone('success');
-}
-
-
+async function uploadPhoto(blob) {
   setUploadedUrl('');
-
-
-  async function uploadPhoto(blob) {
   setMessage('Enviando foto para o Supabase...');
   setTone('info');
 

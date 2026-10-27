@@ -118,5 +118,120 @@ html,body{margin:0;min-width:320px;background:#06070b}
 .ja-games-item-buttons,.ja-games-delete{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0}
 .ja-games-item-buttons button,.ja-games-delete button{border:1px solid #444550;border-radius:7px;background:#252631;color:#ddd;padding:8px 10px;font-size:12px}
 .ja-games-item-buttons button:last-child,.ja-games-delete button:first-of-type{color:#ffb8b8}
+
+/* Câmera e galeria */
+.ja-camera-demo {
+  background: #16181e;
+  border: 1px solid #34302a;
+  border-radius: 18px;
+  padding: 24px;
+  color: white;
+}
+
+.ja-camera-kicker {
+  color: #f5bd40;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.ja-camera-copy h2 {
+  font-size: 26px;
+  margin: 12px 0;
+}
+
+.ja-camera-copy p {
+  color: #b5b5be;
+}
+
+.ja-camera-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.ja-camera-actions button {
+  padding: 12px 16px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.ja-camera-primary {
+  background: #f5bd40;
+  color: #111;
+  font-weight: bold;
+}
+
+.ja-camera-secondary {
+  background: #24252b;
+  color: white;
+  border: 1px solid #555;
+}
+
+.ja-camera-status {
+  margin-top: 12px;
+  color: #c9ccd3;
+}
+
+.ja-camera-preview {
+  margin-top: 16px;
+  min-height: 140px;
+  border: 1px dashed #61503a;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+}
+
+.ja-camera-preview img {
+  max-width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+}
+
+.ja-camera-fab {
+  position: fixed;
+  z-index: 140;
+  right: 18px;
+  bottom: 20px;
+  background: #f5bd40;
+  color: #111;
+  padding: 13px 17px;
+  border-radius: 999px;
+  font-weight: bold;
+  border: 2px solid #ffe19a;
+  cursor: pointer;
+  box-shadow: 0 8px 24px #0009;
+}
+
+.ja-camera-overlay {
+  position: fixed;
+  z-index: 210;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: #000b;
+  overflow-y: auto;
+}
+
+.ja-camera-overlay .ja-camera-demo {
+  position: relative;
+  width: min(100%, 520px);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.ja-camera-close {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  background: #292b31;
+  color: white;
+  border: 1px solid #555;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+}
 .ja-games-delete span{font-size:12px;color:#ffb8b8;width:100%}
 @media(max-width:600px){.ja-games-dialog{padding:23px 18px}.ja-games-header h2{font-size:22px}.ja-games-form{grid-template-columns:1fr}.ja-games-item{align-items:flex-start;flex-direction:column}.ja-games-actions{flex-wrap:wrap}.ja-games-actions>.ja-games-secondary{width:100%}}

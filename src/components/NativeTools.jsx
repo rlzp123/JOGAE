@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { supabase } from '../lib/supabaseClient';
 
 function isCancelled(error) {
   return /cancel|cancelled|canceled|no image picked/i.test(`${error?.code || ''} ${error?.message || ''}`);
@@ -8,6 +9,7 @@ function isCancelled(error) {
 
 export default function NativeTools() {
   const [photo, setPhoto] = useState('');
+  const [uploadedUrl, setUploadedUrl] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
   return () => {
@@ -53,7 +55,7 @@ function closeWebcam() {
   setTone('info');
 }
 
-  function takeWebcamPhoto() {
+async function takeWebcamPhoto() {
   const video = videoRef.current;
 
   if (!video || !video.videoWidth) {
@@ -68,12 +70,81 @@ function closeWebcam() {
   const context = canvas.getContext('2d');
   context.drawImage(video, 0, 0);
 
+  const imageData = canvas.toDataURL('image/jpeg');
+
+  setPhoto(imageData);
+  closeWebcam();
+
+  try {
+    const response = await fetch(imageData);
+    const blob = await response.blob();
+
+    await uploadPhoto(blob);
+  } catch (error) {
+    setMessage(
+      'Erro ao enviar foto: ' +
+      (error?.message || 'Tente novamente.')
+    );
+    setTone('error');
+  }
+}
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  const context = canvas.getContext('2d');
+  context.drawImage(video, 0, 0);
+
   setPhoto(canvas.toDataURL('image/jpeg'));
   closeWebcam();
   setMessage('Foto tirada com sucesso!');
   setTone('success');
 }
 
+
+  setUploadedUrl('');
+
+
+  async function uploadPhoto(blob) {
+  setMessage('Enviando foto para o Supabase...');
+  setTone('info');
+
+  const { data: { user }, error: authError } =
+    await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error('Faça login para enviar fotos.');
+  }
+
+  const extension =
+    blob.type === 'image/png' ? 'png' :
+    blob.type === 'image/webp' ? 'webp' : 'jpg';
+
+  const fileName =
+    `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+
+  const { error } = await supabase.storage
+    .from('fotos-camera')
+    .upload(fileName, blob, {
+      contentType: blob.type || 'image/jpeg',
+      upsert: false
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  const { data } = supabase.storage
+    .from('fotos-camera')
+    .getPublicUrl(fileName);
+
+  setUploadedUrl(data.publicUrl);
+  setMessage('Foto salva no Supabase com sucesso!');
+  setTone('success');
+}
+
+  
 async function choosePhoto() {
   if (busy) return;
 
@@ -104,9 +175,17 @@ async function choosePhoto() {
         promptLabelPhoto: 'Galeria',
       });
       if (!image.webPath) throw new Error('O Android não retornou uma imagem para mostrar.');
-      setPhoto(image.webPath);
-      setMessage('Imagem carregada! Você pode abrir a câmera novamente.');
-      setTone('success');
+setPhoto(image.webPath);
+
+const response = await fetch(image.webPath);
+
+if (!response.ok) {
+  throw new Error('Não foi possível preparar a foto.');
+}
+
+const blob = await response.blob();
+
+await uploadPhoto(blob);
     } catch (error) {
       // Voltar/Cancelar é normal e não apaga a imagem anterior.
       setMessage(isCancelled(error) ? 'Operação cancelada. O JOGAÊ continua funcionando!' :
@@ -143,11 +222,19 @@ async function choosePhoto() {
     if (file) {
       const reader = new FileReader();
 
-      reader.onload = () => {
-        setPhoto(reader.result);
-        setMessage('Imagem carregada com sucesso!');
-        setTone('success');
-      };
+reader.onload = async () => {
+  setPhoto(reader.result);
+
+  try {
+    await uploadPhoto(file);
+  } catch (error) {
+    setMessage(
+      'Erro ao enviar foto: ' +
+      (error?.message || 'Tente novamente.')
+    );
+    setTone('error');
+  }
+};
 
       reader.onerror = () => {
         setMessage('Não foi possível carregar a imagem.');
@@ -224,8 +311,27 @@ async function choosePhoto() {
       <p role="status" data-tone={tone} className="ja-camera-status">{message}</p>
     </div>
     <div className="ja-camera-preview">
-      {photo ? <img src={photo} alt="Pré-visualização da foto capturada ou escolhida" /> :
+      {photo ? <img src={uploadedUrl || photo} alt="Pré-visualização da foto capturada ou escolhida" /> :
         <div className="ja-camera-placeholder"><span>🖼️</span><strong>Pré-visualização</strong><small>A sua foto aparecerá aqui</small></div>}
+
+
+
+
+  {uploadedUrl && (
+  <p style={{ marginTop: '12px' }}>
+    ✅ Foto salva na nuvem!{' '}
+    <a
+      href={uploadedUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: '#f5bd40' }}
+    >
+      Ver foto no Supabase
+    </a>
+  </p>
+)}
+
+      
     </div>
   </section>;
 }

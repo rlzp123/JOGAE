@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
@@ -11,10 +11,17 @@ export default function NativeTools() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('Escolha Câmera ou Galeria para começar.');
   const [tone, setTone] = useState('info');
+  const fileInput = useRef(null);
 
-  async function choosePhoto() {
-    if (busy) return;
-    setBusy(true);
+async function choosePhoto() {
+  if (busy) return;
+
+  if (!Capacitor.isNativePlatform()) {
+    fileInput.current?.click();
+    return;
+  }
+
+  setBusy(true);
     setMessage('Aguardando escolha do Android…');
     setTone('info');
     try {
@@ -64,6 +71,36 @@ export default function NativeTools() {
   }
 
   return <section className="ja-camera-demo" aria-label="Câmera e galeria do JOGAÊ">
+    <input
+  ref={fileInput}
+  type="file"
+  accept="image/*"
+  style={{ display: 'none' }}
+  onChange={(event) => {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        setPhoto(reader.result);
+        setMessage('Imagem carregada com sucesso!');
+        setTone('success');
+      };
+
+      reader.onerror = () => {
+        setMessage('Não foi possível carregar a imagem.');
+        setTone('error');
+      };
+
+      reader.readAsDataURL(file);
+    } else {
+      setMessage('Nenhuma imagem selecionada.');
+    }
+
+    event.target.value = '';
+  }}
+/>
     <div className="ja-camera-copy">
       <span className="ja-camera-kicker">📷 RECURSO NATIVO DO ANDROID</span>
       <h2>Seu momento no JOGAÊ</h2>

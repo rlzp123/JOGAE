@@ -5,11 +5,12 @@ import AuthScreen from './components/AuthScreen';
 import AccountControls from './components/AccountControls';
 import OriginalCatalog from './components/OriginalCatalog';
 import MyGamesCRUD from './components/MyGamesCRUD';
+import NativeTools from './components/NativeTools';
 
 function SignedInApp() {
   const { user } = useAuth();
   const [gamesOpen, setGamesOpen] = useState(false);
-  return <><OriginalCatalog /><AccountControls onOpenGames={() => setGamesOpen(true)} />{gamesOpen && <MyGamesCRUD key={user.id} onClose={() => setGamesOpen(false)} />}</>;
+  return <><OriginalCatalog /><AccountControls onOpenGames={() => setGamesOpen(true)} />{gamesOpen && <MyGamesCRUD key={user.id} onClose={() => setGamesOpen(false)} />}<NativeTools /></>;
 }
 
 export default function App() {

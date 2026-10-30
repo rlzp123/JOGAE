@@ -1,0 +1,57 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || vars.VITE_SUPABASE_ANON_KEY }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Validate app configuration
+        shell: bash
+        run: |
+          test -n "$VITE_SUPABASE_URL" || { echo '::error::Configure VITE_SUPABASE_URL in repository secrets or variables'; exit 1; }
+          test -n "$VITE_SUPABASE_ANON_KEY$VITE_SUPABASE_PUBLISHABLE_KEY" || { echo '::error::Configure a Supabase public client key in repository secrets or variables'; exit 1; }
+      - run: npm ci
+      - name: Test location and Maps flow
+        run: npm run test -- src/test/geolocation.test.jsx
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Install Android SDK packages
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Build installable debug APK
+        working-directory: android
+        run: bash gradlew assembleDebug --no-daemon --stacktrace
+      - name: Name APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk jogae-debug.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: jogae-debug-apk
+          path: jogae-debug.apk
+          if-no-files-found: error
+          retention-days: 14

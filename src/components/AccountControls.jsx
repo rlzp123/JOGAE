@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { authError } from '../lib/authErrors';
 import UserAvatar from './UserAvatar';
+import { clearLocationSessionState } from './GeolocationTools';
 
 export default function AccountControls({ onOpenGames }) {
   const { user, signOut } = useAuth();
@@ -10,6 +11,7 @@ export default function AccountControls({ onOpenGames }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
   useEffect(() => {
     const connect = () => setTarget(document.querySelector('#root .cart-button')?.parentElement || null);
     const observer = new MutationObserver(connect);
@@ -17,18 +19,29 @@ export default function AccountControls({ onOpenGames }) {
     connect();
     return () => observer.disconnect();
   }, []);
+
   useEffect(() => {
     const onEscape = (event) => { if (event.key === 'Escape') setOpen(false); };
     window.addEventListener('keydown', onEscape);
     return () => window.removeEventListener('keydown', onEscape);
   }, []);
+
   async function logout() {
-    setBusy(true); setError('');
-    try { const { error } = await signOut(); if (error) throw error; }
-    catch (error) { setError(authError(error)); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setError('');
+    try {
+      const { error } = await signOut();
+      if (error) throw error;
+      clearLocationSessionState();
+    } catch (error) {
+      setError(authError(error));
+    } finally {
+      setBusy(false);
+    }
   }
+
   const button = <button type="button" className={`ja-account-nav ${target ? '' : 'ja-account-fallback'}`} aria-label="Minha conta" aria-expanded={open} aria-controls="account-panel" onClick={() => setOpen(!open)}><UserAvatar user={user} /><span className="ja-account-label">Minha conta</span></button>;
+
   return <>
     {target ? createPortal(button, target) : button}
     {open && <aside id="account-panel" className="ja-account-panel" aria-label="Minha conta">

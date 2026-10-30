@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">JOGAÊ</string>
+    <string name="title_activity_main">JOGAÊ</string>
+    <string name="package_name">com.jogae.app</string>
+    <string name="custom_url_scheme">com.jogae.app</string>
+</resources>

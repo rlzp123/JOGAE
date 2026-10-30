@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -19,6 +20,7 @@ export function clearLocationSessionState() {
 }
 
 export default function GeolocationTools({ userId }) {
+  const [catalogTarget, setCatalogTarget] = useState(null);
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -28,6 +30,32 @@ export default function GeolocationTools({ userId }) {
   const [settingsAvailable, setSettingsAvailable] = useState(false);
 
   const hasValidCoordinates = validCoordinates(location);
+
+  // The preserved catalog mounts asynchronously in its own React root.
+  // Place the authenticated location controls beside its existing GPS button.
+  useEffect(() => {
+    const connect = () => setCatalogTarget(document.querySelector('#nativo'));
+    const observer = new MutationObserver(connect);
+    observer.observe(document.body, { childList: true, subtree: true });
+    connect();
+    return () => observer.disconnect();
+  }, []);
+
+  // Intercept the old handler before the catalog's separate React root captures
+  // the click, so both entry points use the same consent and location.
+  useEffect(() => {
+    const requestFromCatalog = (event) => {
+      if (!(event.target instanceof Element)) return;
+      const button = event.target.closest('#nativo button.native-button.secondary-native');
+      if (!button) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void handleGetLocation();
+      document.getElementById('jogae-location')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    };
+    document.addEventListener('click', requestFromCatalog, true);
+    return () => document.removeEventListener('click', requestFromCatalog, true);
+  });
 
   useEffect(() => {
     const consent = sessionStorage.getItem(LOCATION_CONSENT_KEY);
@@ -162,8 +190,9 @@ export default function GeolocationTools({ userId }) {
     }
   }
 
-  return (
+  const content = (
     <section
+      id="jogae-location"
       style={{
         marginTop: '24px',
         padding: '20px',
@@ -341,4 +370,6 @@ export default function GeolocationTools({ userId }) {
       )}
     </section>
   );
+
+  return catalogTarget ? createPortal(content, catalogTarget) : content;
 }
